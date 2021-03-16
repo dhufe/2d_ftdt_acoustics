@@ -46,7 +46,9 @@ def SourceRect( indices, xs , ys, width, height ):
 # Grid size x-direction
 NX = 500
 # Grid size y-direction
-NY = 500
+NY = 1000
+NSources = 8
+NFrames = 15000
 
 ## Properties of the acoustic excitation
 # Frequency
@@ -66,7 +68,7 @@ dt = dx/(cmax*np.sqrt(2) ) # 20.0e-6
 # mesh grid
 x = np.arange ( 0, (NX)*dx, dx )
 y = np.arange ( 0, (NY)*dx, dx )
-xx, yy = np.meshgrid( y, x )
+xx, yy = np.meshgrid( x, y )
 
 ## Properties of the fluid like density and viscosity
 # Density
@@ -75,14 +77,13 @@ rho = 1.241
 kappa = np.power(cmax, 2.0) * rho #142.0e3
 
 ## Computing magnitutes for two dimensional particle velocity and pressure
-Vx = np.zeros ( ( NX + 1, NY     ) )
-Vy = np.zeros ( ( NX    , NY + 1 ) )
-P  = np.zeros ( ( NX    , NY     ) )
+Vx = np.zeros ( ( NY + 1, NX     ) )
+Vy = np.zeros ( ( NY    , NX + 1 ) )
+P  = np.zeros ( ( NY    , NX     ) )
 
-NFrames = 500
-
-sigma_x = np.ones ( ( NX, NY ) )
-sigma_y = np.ones ( ( NX, NY ) )
+sigma_x = np.ones ( ( NY, NX ) )
+sigma_y = np.ones ( ( NY, NX ) )
+Excitation = np.full(( NSources, NY, NX), False, dtype=bool)
 
 SourceWidth  = 40
 SourceHeight = 10
@@ -105,12 +106,9 @@ for i in range ( 0, PMLWidth):
 # setup indices
 ind = np.full(( NX, NY), False, dtype=bool)
 
-NSources = 8
+
 dxStep = NX // (NSources + 1)
 dyStep = NY // (NSources + 1)
-
-Excitation = np.full(( NSources, NX, NY), False, dtype=bool)
-print ( Excitation[0][:][:].shape )
 
 for iSource in range(0, NSources ):
     Pmy = 100
@@ -158,18 +156,18 @@ print ( 'Phaseshift         %3.3f us.' % ( phaseshift *1e6/ (2*np.pi*freq )  ) )
 
 def updatefig ( n ):
     # Updating particle velocities
-    for i in range (2,NX):
-        for j in range ( 1, NY ):
+    for i in range (2,NY):
+        for j in range ( 1, NX ):
             Vx[i,j] -=  dt_over_rho_x_dx * sigma_x[i,j] * ( P[i,j] - P[i-1,j] )
 
-    for i in range (1,NX):
-        for j in range ( 2, NY):
+    for i in range (1,NY):
+        for j in range ( 2, NX):
             Vy[i,j] -= dt_over_rho_x_dx * sigma_y[i,j] * ( P[i,j] - P[i,j-1] )
 
 
     # Update sound pressure
-    for i in range (1, NX):
-        for j in range (1,NY):
+    for i in range (1, NY):
+        for j in range (1,NX):
             P[i,j] -=  ( ( Vx[i+1,j] - Vx[i,j] ) + ( Vy[i,j+1] - Vy[i,j] ) )
 
     # Acoustic source ( during one period)
