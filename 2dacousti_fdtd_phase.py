@@ -39,6 +39,8 @@ def circle(indices, ym, xm, r):
             dy += 2
             err += dx - ( 2*r )
 
+def rect( indices, xs , ys, width ):
+    ind[ xs:xs+width, ys:ys+1 ] = True
 
 ## Computing grid and resolutions
 # Grid size x-direction
@@ -101,7 +103,8 @@ for iSource in range(0, NSources):
 
     Pmy = 100
 
-    circle ( Excitation[iSource][:][:], Pmx, Pmy, 15 )
+    rect (  Excitation[iSource][:][:], Pmx, Pmy, 20 )
+    # circle ( Excitation[iSource][:][:], Pmx, Pmy, 15 )
 
 # Pmx = int(np.floor(NX/2 + 1 ))
 # Pmy = int(np.floor(NY - 100 ))
@@ -134,7 +137,7 @@ colormap = 'RdBu'
 
 fig = plt.figure(figsize=(12.8, 7.2))
 ax  = fig.add_subplot(1,1,1)
-cax  = ax.pcolormesh( xx, yy, P, vmin=-1, vmax=1, cmap=colormap)
+cax  = ax.pcolormesh( xx, yy, P, vmin=-1, vmax=1, cmap=colormap, shading='auto')
 ax.set_xlabel ( r'Position $x$ / $m$' )
 ax.set_ylabel ( r'Position $y$ / $m$' )
 ax.set_xlim   ( y[0], y[-1] )
