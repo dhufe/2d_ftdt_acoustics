@@ -77,15 +77,15 @@ SourceWidth  = 40
 # single source height
 SourceHeight = 10
 # PML width
-PMLWidth = 15
+PMLWidth = 25
 # maximum damping of the PML
 sigma_max = 5
 # colormap
 colormap = 'RdYlBu'
 # time between two frames
 image_step = 200
-# independent phase shift of each source
-phaseshift = np.pi*.125
+# angle of incident 
+alpha = 15
 
 # wave length
 lamda = cmax / freq
@@ -97,6 +97,10 @@ dx = lamda/5
 # time stability criteria: dt must be smaller or equal than dx / ( sqrt(2) * c_max )
 # where c_max is the highest wave speed in the model!
 dt = dx/(cmax*np.sqrt(2) )
+
+# independent phase shift of each source
+phaseshift = (2 * np.pi / lamda ) * SourceWidth * dx * np.sin ( np.pi * alpha / 180)
+
 # mesh grid
 x = np.arange ( 0, (NX)*dx, dx )
 y = np.arange ( 0, (NY)*dx, dx )
@@ -154,7 +158,6 @@ ax.set_xlabel ( r'Position $x$ / $m$' )
 ax.set_ylabel ( r'Position $y$ / $m$' )
 ax.set_xlim   ( y[0], y[-1] )
 ax.set_ylim   ( x[0], x[-1] )
-ax.axis('equal')
 fig.colorbar(cax)
 fig.tight_layout()
 
