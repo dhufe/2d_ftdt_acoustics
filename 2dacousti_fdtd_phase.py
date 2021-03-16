@@ -39,8 +39,8 @@ def circle(indices, ym, xm, r):
             dy += 2
             err += dx - ( 2*r )
 
-def rect( indices, xs , ys, width ):
-    ind[ xs:xs+width, ys:ys+1 ] = True
+def SourceRect( indices, xs , ys, width, height ):
+    indices[ ys : ys + height, xs : xs + width ] = True
 
 ## Computing grid and resolutions
 # Grid size x-direction
@@ -58,7 +58,7 @@ lamda = cmax / freq
 # Spatial resolution
 # spatial stability critria: dx must be smaller or equal than lambda_min / 20
 # where lambda_min is the shortest wavelength in the model!
-dx = lamda/5 #.01
+dx = lamda/10 #.01
 # Time domain resolution
 # time stability criteria: dt must be smaller or equal than dx / ( sqrt(2) * c_max )
 # where c_max is the highest wave speed in the model!
@@ -79,10 +79,28 @@ Vx = np.zeros ( ( NX + 1, NY     ) )
 Vy = np.zeros ( ( NX    , NY + 1 ) )
 P  = np.zeros ( ( NX    , NY     ) )
 
-NFrames = 10000
+NFrames = 500
+
+sigma_x = np.ones ( ( NX, NY ) )
+sigma_y = np.ones ( ( NX, NY ) )
 
 SourceWidth  = 40
 SourceHeight = 10
+
+PMLWidth = 15
+
+sigma_max = 5
+
+for i in range ( 0, PMLWidth):
+    sigma = np.exp ( - 2 * sigma_max * (i/PMLWidth) )
+
+    sigma_x [: , PMLWidth - i    -1          ] = sigma 
+    sigma_x [: , NX - PMLWidth + i           ] = sigma
+
+    sigma_y [PMLWidth - i - 1, :             ] = sigma
+    sigma_y [NY - PMLWidth + i ,:            ] = sigma
+
+# sigma_y [0:PMLWidth, :  ] = 
 
 # setup indices
 ind = np.full(( NX, NY), False, dtype=bool)
@@ -94,46 +112,22 @@ dyStep = NY // (NSources + 1)
 Excitation = np.full(( NSources, NX, NY), False, dtype=bool)
 print ( Excitation[0][:][:].shape )
 
-for iSource in range(0, NSources):
-
-    if iSource == 0:
-        Pmx = int( dxStep )
-    else: 
-        Pmx = int( ( iSource + 1) * dxStep )
-
+for iSource in range(0, NSources ):
     Pmy = 100
 
-    rect (  Excitation[iSource][:][:], Pmx, Pmy, 20 )
-    # circle ( Excitation[iSource][:][:], Pmx, Pmy, 15 )
+    if iSource == 0:
+        Pmx = int( dxStep // 2)
+    else: 
+        Pmx = int( ( iSource * dxStep + dxStep // 2 ) ) 
 
-# Pmx = int(np.floor(NX/2 + 1 ))
-# Pmy = int(np.floor(NY - 100 ))
+    print ( 'Source (%d): Px %f, Py %f, width = %f, height = %f.' % ( iSource, Pmx*dx , Pmy*dx, SourceWidth*dx, SourceHeight*dx )  )
+    SourceRect (  Excitation[iSource][:][:], Pmx, Pmy, SourceWidth, SourceHeight )    
 
-# circle ( ind, Pmx, Pmy, 20 )
-
-# Pmx = int(np.floor(3*NX/4 + 1 ))
-# Pmy = int(np.floor(NY - 100 ))
-
-# circle ( ind, Pmx, Pmy, 20 )
-
-# Pmx = int(np.floor(NX - SourceWidth + 1 ))
-# Pmy = int(np.floor(NY - 100 ))
-
-# circle ( ind, Pmx, Pmy, 20 )
-
-# Pxs = int(np.floor(NX/2 - SourceWidth/2  + 1 ))
-# Pxe = int(np.floor(NX/2 + SourceWidth/2  + 1 ))
-
-# Pys = int(np.floor(NY/2 - SourceHeight/2 + 1 ))
-# Pye = int(np.floor(NY/2 + SourceHeight/2 + 1 ))
-
-# ind[ Pxs:Pxe, Pys:Pys ] = True
 
 ## Visual stuff
 # Colormap
 colormap = 'RdBu'
 # Plot creation
-
 
 fig = plt.figure(figsize=(12.8, 7.2))
 ax  = fig.add_subplot(1,1,1)
@@ -152,26 +146,25 @@ image_step = 200
 ## help variables
 dt_over_rho_x_dx = dt / ( rho * dx )
 kappa_x_dt_over_dx = kappa * dt / dx
+phaseshift = np.pi*.125
+n = 0
 
 print ( 'Spatial stepsize  %00.3f mm.' % ( dx*1e3 ) )
 print ( 'Time stepsize     %00.3f us.' % ( dt*1e6 ) )
 print ( 'Volume elasticity %03.3f   .' % ( kappa*1e-3 ) )
 print ( 'Frames            %0003d   .' % ( NFrames ))
 print ( 'Pulse width         %03d us.' % ( int((1.0/freq)/dt) ) )
+print ( 'Phaseshift         %3.3f us.' % ( phaseshift *1e6/ (2*np.pi*freq )  ) )
 
-n = 0
-
-phaseshift = np.pi*.25
-
-def updatefig (n):
+def updatefig ( n ):
     # Updating particle velocities
     for i in range (2,NX):
         for j in range ( 1, NY ):
-            Vx[i,j] -=  dt_over_rho_x_dx * ( P[i,j] - P[i-1,j] )
+            Vx[i,j] -=  dt_over_rho_x_dx * sigma_x[i,j] * ( P[i,j] - P[i-1,j] )
 
     for i in range (1,NX):
         for j in range ( 2, NY):
-            Vy[i,j] -= dt_over_rho_x_dx * ( P[i,j] - P[i,j-1] )
+            Vy[i,j] -= dt_over_rho_x_dx * sigma_y[i,j] * ( P[i,j] - P[i,j-1] )
 
 
     # Update sound pressure
@@ -185,18 +178,11 @@ def updatefig (n):
         if ( n * dt >= ( 5/freq + iSource * phaseshift)):
             P[ ind ] += (1.0-np.cos(2.0*np.pi*freq*n*dt + iSource * phaseshift))/2.0 * np.sin(2.0*np.pi*freq*n*dt + iSource * phaseshift )
 
-    #if (n < (1.0/(.5*freq))/dt):
-    #   P[ ind ] += .33*(1.0-np.cos(2.0*np.pi*freq*n*dt + phaseshift))/2.0 * np.sin(2.0*np.pi*freq*n*dt + phaseshift)
-
-    #if (n < (1.0/(.25*freq))/dt):
-    #    P[ ind ] += .33*(1.0-np.cos(2.0*np.pi*freq*n*dt + phaseshift))/2.0 * np.sin(2.0*np.pi*freq*n*dt + phaseshift)
-
-
     if (( n + 1 ) % 100 == 1) and ( n != 0):
         print ( '--- processing step %03d / %3.1f ms ---' % ( n , int((n*dt*1e3*10))/10.0  ))
 
     # Updating the current calculation step
-    n += 1
+    # n += 1
 
     # Updating data
     cax.set_array ( P.flatten() )
