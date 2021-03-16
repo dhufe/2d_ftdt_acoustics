@@ -1,14 +1,31 @@
-#
-#
-#
-#
-#
-
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+
+import seaborn as sns
+
+def set_style():
+    # This sets reasonable defaults for font size for
+    # a figure that will go in a paper
+    sns.set_context("paper")
+
+    # Set the font to be serif, rather than sans
+    sns.set(font='serif',style="ticks")
+
+    # Make the background white, and specify the
+    # specific font family
+    sns.set_style("white", {
+        "font.family": "serif",
+        "font.serif": ["Times", "Palatino", "serif"]
+    })
+    sns.set_style("ticks", {"xtick.major.size": 8, "ytick.major.size": 8})
+    sns.set_style({"xtick.direction": "in","ytick.direction": "in"})
+
+def set_size(fig):
+    fig.set_size_inches(8, 5)
+    fig.tight_layout()
 
 def circle(indices, ym, xm, r):
 
@@ -48,68 +65,73 @@ NX = 500
 # Grid size y-direction
 NY = 1000
 NSources = 8
-NFrames = 15000
-
-## Properties of the acoustic excitation
+NFrames = 20000
+# Density
+rho = 1.241
 # Frequency
 freq = 250.0e3           # Hz
 # wave speed
 cmax = 343              # m/s
+# single source width
+SourceWidth  = 40
+# single source height
+SourceHeight = 10
+# PML width
+PMLWidth = 15
+# maximum damping of the PML
+sigma_max = 5
+# colormap
+colormap = 'RdYlBu'
+# time between two frames
+image_step = 200
+# independent phase shift of each source
+phaseshift = np.pi*.125
+
 # wave length
 lamda = cmax / freq
 # Spatial resolution
 # spatial stability critria: dx must be smaller or equal than lambda_min / 20
 # where lambda_min is the shortest wavelength in the model!
-dx = lamda/10 #.01
+dx = lamda/5
 # Time domain resolution
 # time stability criteria: dt must be smaller or equal than dx / ( sqrt(2) * c_max )
 # where c_max is the highest wave speed in the model!
-dt = dx/(cmax*np.sqrt(2) ) # 20.0e-6
+dt = dx/(cmax*np.sqrt(2) )
 # mesh grid
 x = np.arange ( 0, (NX)*dx, dx )
 y = np.arange ( 0, (NY)*dx, dx )
 xx, yy = np.meshgrid( x, y )
 
 ## Properties of the fluid like density and viscosity
-# Density
-rho = 1.241
 # Bulk viscosity: c^2 x rho
 kappa = np.power(cmax, 2.0) * rho #142.0e3
 
 ## Computing magnitutes for two dimensional particle velocity and pressure
+# particle velocity in x direction
 Vx = np.zeros ( ( NY + 1, NX     ) )
+# particle velocity in y direction
 Vy = np.zeros ( ( NY    , NX + 1 ) )
+# pressure
 P  = np.zeros ( ( NY    , NX     ) )
-
+# numeric absorption (PML) in x direction
 sigma_x = np.ones ( ( NY, NX ) )
+# numeric absorption (PML) in x direction
 sigma_y = np.ones ( ( NY, NX ) )
+# source configuration
 Excitation = np.full(( NSources, NY, NX), False, dtype=bool)
 
-SourceWidth  = 40
-SourceHeight = 10
-
-PMLWidth = 15
-
-sigma_max = 5
-
+### create the PML
 for i in range ( 0, PMLWidth):
     sigma = np.exp ( - 2 * sigma_max * (i/PMLWidth) )
-
     sigma_x [: , PMLWidth - i    -1          ] = sigma 
     sigma_x [: , NX - PMLWidth + i           ] = sigma
-
     sigma_y [PMLWidth - i - 1, :             ] = sigma
     sigma_y [NY - PMLWidth + i ,:            ] = sigma
-
-# sigma_y [0:PMLWidth, :  ] = 
-
-# setup indices
-ind = np.full(( NX, NY), False, dtype=bool)
-
 
 dxStep = NX // (NSources + 1)
 dyStep = NY // (NSources + 1)
 
+### create the acoustic sources
 for iSource in range(0, NSources ):
     Pmy = 100
 
@@ -118,15 +140,13 @@ for iSource in range(0, NSources ):
     else: 
         Pmx = int( ( iSource * dxStep + dxStep // 2 ) ) 
 
-    print ( 'Source (%d): Px %f, Py %f, width = %f, height = %f.' % ( iSource, Pmx*dx , Pmy*dx, SourceWidth*dx, SourceHeight*dx )  )
+    # print ( 'Source (%d): Px %f, Py %f, width = %f, height = %f.' % ( iSource, Pmx*dx , Pmy*dx, SourceWidth*dx, SourceHeight*dx )  )
     SourceRect (  Excitation[iSource][:][:], Pmx, Pmy, SourceWidth, SourceHeight )    
 
 
-## Visual stuff
-# Colormap
-colormap = 'RdBu'
-# Plot creation
 
+# Plot creation
+set_style()
 fig = plt.figure(figsize=(12.8, 7.2))
 ax  = fig.add_subplot(1,1,1)
 cax  = ax.pcolormesh( xx, yy, P, vmin=-1, vmax=1, cmap=colormap, shading='auto')
@@ -134,17 +154,14 @@ ax.set_xlabel ( r'Position $x$ / $m$' )
 ax.set_ylabel ( r'Position $y$ / $m$' )
 ax.set_xlim   ( y[0], y[-1] )
 ax.set_ylim   ( x[0], x[-1] )
-
+ax.axis('equal')
 fig.colorbar(cax)
-
 fig.tight_layout()
 
-image_step = 200
-
-## help variables
+## help variables for computation
 dt_over_rho_x_dx = dt / ( rho * dx )
 kappa_x_dt_over_dx = kappa * dt / dx
-phaseshift = np.pi*.125
+
 n = 0
 
 print ( 'Spatial stepsize  %00.3f mm.' % ( dx*1e3 ) )
@@ -170,7 +187,7 @@ def updatefig ( n ):
         for j in range (1,NX):
             P[i,j] -=  ( ( Vx[i+1,j] - Vx[i,j] ) + ( Vy[i,j+1] - Vy[i,j] ) )
 
-    # Acoustic source ( during one period)
+    # Acoustic source ( during n period)
     for iSource in range(0, NSources):
         ind = Excitation[iSource][:][:]
         if ( n * dt >= ( 5/freq + iSource * phaseshift)):
@@ -185,9 +202,7 @@ def updatefig ( n ):
     # Updating data
     cax.set_array ( P.flatten() )
     #cax2.set_array ( np.abs(P).flatten() )
-    #ax.set_title("circular membrane: l={}, m={}-Mode".format(l+1,m))
     ax.set_title("Time step {} ms".format( int((n*dt*1e3*10))/10.0 ) )
-    #ax[1].set_title("Time step {} ms".format( int((n*dt*1e3*10))/10.0 ) )
     return cax,
 
 anim = animation.FuncAnimation(fig, updatefig, frames=NFrames-1,interval=image_step, blit=True)
@@ -195,6 +210,6 @@ anim = animation.FuncAnimation(fig, updatefig, frames=NFrames-1,interval=image_s
 anim
 Writer = animation.writers['ffmpeg']
 writer = Writer ( fps=100, metadata=dict(artist='dhufschl' ), bitrate=6000)
-anim.save('ftdt_acoustic_4_sources_phase_2d.mp4', writer=writer )
+anim.save('ftdt_acoustic_8_pml_2d.mp4', writer=writer )
 plt.close()
 
