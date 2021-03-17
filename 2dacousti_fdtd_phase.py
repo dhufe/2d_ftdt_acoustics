@@ -65,7 +65,7 @@ NX = 500
 # Grid size y-direction
 NY = 1000
 NSources = 8
-NFrames = 20000
+NFrames = 15000
 # Density
 rho = 1.241
 # Frequency
@@ -79,7 +79,7 @@ SourceHeight = 10
 # PML width
 PMLWidth = 25
 # maximum damping of the PML
-sigma_max = 5
+sigma_max = 20
 # colormap
 colormap = 'RdYlBu'
 # time between two frames
@@ -92,7 +92,7 @@ lamda = cmax / freq
 # Spatial resolution
 # spatial stability critria: dx must be smaller or equal than lambda_min / 20
 # where lambda_min is the shortest wavelength in the model!
-dx = lamda/5
+dx = lamda/20
 # Time domain resolution
 # time stability criteria: dt must be smaller or equal than dx / ( sqrt(2) * c_max )
 # where c_max is the highest wave speed in the model!
@@ -126,11 +126,12 @@ Excitation = np.full(( NSources, NY, NX), False, dtype=bool)
 
 ### create the PML
 for i in range ( 0, PMLWidth):
-    sigma = np.exp ( - 2 * sigma_max * (i/PMLWidth) )
+    sigma = 1 + sigma_max * (i/PMLWidth)
     sigma_x [: , PMLWidth - i    -1          ] = sigma 
     sigma_x [: , NX - PMLWidth + i           ] = sigma
     sigma_y [PMLWidth - i - 1, :             ] = sigma
     sigma_y [NY - PMLWidth + i ,:            ] = sigma
+
 
 dxStep = NX // (NSources + 1)
 dyStep = NY // (NSources + 1)
@@ -147,7 +148,8 @@ for iSource in range(0, NSources ):
     # print ( 'Source (%d): Px %f, Py %f, width = %f, height = %f.' % ( iSource, Pmx*dx , Pmy*dx, SourceWidth*dx, SourceHeight*dx )  )
     SourceRect (  Excitation[iSource][:][:], Pmx, Pmy, SourceWidth, SourceHeight )    
 
-
+sigma_x[ 0:Pmy + SourceHeight - 1, : ] = sigma_max
+sigma_y[ 0:Pmy + SourceHeight - 1, : ] = sigma_max
 
 # Plot creation
 set_style()
@@ -156,8 +158,8 @@ ax  = fig.add_subplot(1,1,1)
 cax  = ax.pcolormesh( xx, yy, P, vmin=-1, vmax=1, cmap=colormap, shading='auto')
 ax.set_xlabel ( r'Position $x$ / $m$' )
 ax.set_ylabel ( r'Position $y$ / $m$' )
-ax.set_xlim   ( y[0], y[-1] )
-ax.set_ylim   ( x[0], x[-1] )
+ax.set_ylim   ( y[0], y[-1] )
+ax.set_xlim   ( x[0], x[-1] )
 fig.colorbar(cax)
 fig.tight_layout()
 
@@ -178,11 +180,11 @@ def updatefig ( n ):
     # Updating particle velocities
     for i in range (2,NY):
         for j in range ( 1, NX ):
-            Vx[i,j] -=  dt_over_rho_x_dx * sigma_x[i,j] * ( P[i,j] - P[i-1,j] )
+            Vx[i,j] -=  dt_over_rho_x_dx * (1/sigma_x[i,j]) * ( P[i,j] - P[i-1,j] )
 
     for i in range (1,NY):
         for j in range ( 2, NX):
-            Vy[i,j] -= dt_over_rho_x_dx * sigma_y[i,j] * ( P[i,j] - P[i,j-1] )
+            Vy[i,j] -= dt_over_rho_x_dx * (1/sigma_y[i,j]) * ( P[i,j] - P[i,j-1] )
 
 
     # Update sound pressure
@@ -193,7 +195,7 @@ def updatefig ( n ):
     # Acoustic source ( during n period)
     for iSource in range(0, NSources):
         ind = Excitation[iSource][:][:]
-        if ( n * dt >= ( 5/freq + iSource * phaseshift)):
+        if ( n * dt <= ( 2/freq + iSource * phaseshift)):
             P[ ind ] += (1.0-np.cos(2.0*np.pi*freq*n*dt + iSource * phaseshift))/2.0 * np.sin(2.0*np.pi*freq*n*dt + iSource * phaseshift )
 
     if (( n + 1 ) % 100 == 1) and ( n != 0):
@@ -208,7 +210,7 @@ def updatefig ( n ):
     ax.set_title("Time step {} ms".format( int((n*dt*1e3*10))/10.0 ) )
     return cax,
 
-anim = animation.FuncAnimation(fig, updatefig, frames=NFrames-1,interval=image_step, blit=True)
+anim = animation.FuncAnimation(fig, updatefig, frames=NFrames-1, blit=True)
 
 anim
 Writer = animation.writers['ffmpeg']
