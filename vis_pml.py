@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib
-matplotlib.use('Agg')
+# matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 ## Computing grid and resolutions
@@ -35,24 +35,27 @@ SourceWidth  = 40
 SourceHeight = 10
 
 PMLWidth = 20
-
+Pmy = 100
 sigma_max = 5
 
 for i in range ( 0, PMLWidth):
-    sigma = np.exp ( - 2 * sigma_max * (i/PMLWidth) )
-
+    sigma = 1 + sigma_max * (i/PMLWidth)
     sigma_x [: , PMLWidth - i    -1          ] = sigma 
     sigma_x [: , NX - PMLWidth + i           ] = sigma
-
     sigma_y [PMLWidth - i - 1, :             ] = sigma
     sigma_y [NY - PMLWidth + i ,:            ] = sigma
 
+sigma_x[ 0:Pmy, : ] = sigma_max
+sigma_y[ 0:Pmy, : ] = sigma_max
+
+
 xx, yy = np.meshgrid( y, x )
 
-fig, ax = plt.subplots(1)
-#ax.plot ( sigma_x[ NY//2, : ] )
-ax.pcolormesh ( sigma_x + sigma_y , shading = 'auto' )
+fig, ax = plt.subplots(2)
+ax[0].plot ( sigma_x[ NY//2, : ] )
+ax[1].pcolormesh ( sigma_x + sigma_y , shading = 'auto' )
+ax[1].axis('equal')
 
-
+plt.show()
 plt.savefig ( 'pml.png' , dpi = 300)
 plt.close()
