@@ -11,7 +11,7 @@ NY = 500
 
 ## Properties of the acoustic excitation
 # Frequency
-freq = 50.0e3           # Hz
+freq = 250.0e3           # Hz
 # wave speed
 cmax = 343              # m/s
 # wave length
@@ -19,7 +19,7 @@ lamda = cmax / freq
 # Spatial resolution
 # spatial stability critria: dx must be smaller or equal than lambda_min / 20
 # where lambda_min is the shortest wavelength in the model!
-dx = lamda/10 #.01
+dx = lamda/20 #.01
 
 def SourceRect( indices, xs , ys, width, height ):
     indices[ ys : ys + height, xs : xs + width ] = True
@@ -28,20 +28,28 @@ x = np.arange ( 0, (NX)*dx, dx )
 y = np.arange ( 0, (NY)*dx, dx )
 ind = np.full(( NX, NY), False, dtype=bool)
 
-NSources = 8
-SourceWidth  = 50
+NSources = 4
+SourceWidth  = 25
 SourceHeight = 40
-dxStep = NX // (NSources + 1)
+dxStep = 10
 dyStep = NY // (NSources + 1)
 
+Wc = NSources * ( SourceWidth + dxStep ) - dxStep 
+
+print ( Wc ) 
+print ( dxStep ) 
+
+offset = int ( NX//2 - ( dxStep * ( .5 + ( NSources // 2 - 1 ) ) + SourceWidth * NSources//2 )  )
+
+print ( offset ) 
 for iSource in range(0, NSources ):
     Pmy = 100
 
     if iSource == 0:
-        Pmx = int( dxStep // 2)
+        Pmx = offset
     else: 
-        Pmx = int( ( iSource * dxStep + dxStep // 2 ) ) 
-
+        Pmx = int( offset + iSource * (dxStep + SourceWidth ) )
+    
     print ( 'Source (%d): Px %f, Py %f, width = %f, height = %f.' % ( iSource, Pmx*dx , Pmy*dx, SourceWidth*dx, SourceHeight*dx )  )
     SourceRect (  ind, Pmx, Pmy, SourceWidth, SourceHeight )    
 

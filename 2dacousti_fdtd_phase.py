@@ -64,8 +64,8 @@ def SourceRect( indices, xs , ys, width, height ):
 NX = 500
 # Grid size y-direction
 NY = 1000
-NSources = 8
-NFrames = 15000
+NSources = 4
+NFrames = 1000
 # Density
 rho = 1.241
 # Frequency
@@ -133,20 +133,23 @@ for i in range ( 0, PMLWidth):
     sigma_y [NY - PMLWidth + i ,:            ] = sigma
 
 
-dxStep = NX // (NSources + 1)
+dxStep = 10
 dyStep = NY // (NSources + 1)
+
+offset = int ( NX//2 - ( dxStep * ( .5 + ( NSources//2 - 1 ) ) + SourceWidth * NSources//2 )  )
 
 ### create the acoustic sources
 for iSource in range(0, NSources ):
     Pmy = 100
 
     if iSource == 0:
-        Pmx = int( dxStep // 2)
+        Pmx = offset
     else: 
-        Pmx = int( ( iSource * dxStep + dxStep // 2 ) ) 
+        Pmx = int( offset + iSource * (dxStep + SourceWidth ) )
+    
+    print ( 'Source (%d): Px %f, Py %f, width = %f, height = %f.' % ( iSource, Pmx*dx , Pmy*dx, SourceWidth*dx, SourceHeight*dx )  )
+    SourceRect (  Excitation[iSource, :, :], Pmx, Pmy, SourceWidth, SourceHeight )    
 
-    # print ( 'Source (%d): Px %f, Py %f, width = %f, height = %f.' % ( iSource, Pmx*dx , Pmy*dx, SourceWidth*dx, SourceHeight*dx )  )
-    SourceRect (  Excitation[iSource][:][:], Pmx, Pmy, SourceWidth, SourceHeight )    
 
 sigma_x[ 0:Pmy + SourceHeight - 1, : ] = sigma_max
 sigma_y[ 0:Pmy + SourceHeight - 1, : ] = sigma_max
