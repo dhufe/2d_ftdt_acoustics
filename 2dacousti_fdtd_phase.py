@@ -59,13 +59,14 @@ def circle(indices, ym, xm, r):
 def SourceRect( indices, xs , ys, width, height ):
     indices[ ys : ys + height, xs : xs + width ] = True
 
+
 ## Computing grid and resolutions
 # Grid size x-direction
-NX = 500
+NX = 2000
 # Grid size y-direction
-NY = 1000
-NSources = 4
-NFrames = 1000
+NY = 6000
+NSources = 8
+NFrames = 5000
 # Density
 rho = 1.241
 # Frequency
@@ -73,7 +74,7 @@ freq = 250.0e3           # Hz
 # wave speed
 cmax = 343              # m/s
 # single source width
-SourceWidth  = 40
+SourceWidth  = 20
 # single source height
 SourceHeight = 10
 # PML width
@@ -102,9 +103,9 @@ dt = dx/(cmax*np.sqrt(2) )
 phaseshift = (2 * np.pi / lamda ) * SourceWidth * dx * np.sin ( np.pi * alpha / 180)
 
 # mesh grid
-x = np.arange ( 0, (NX)*dx, dx )
-y = np.arange ( 0, (NY)*dx, dx )
-xx, yy = np.meshgrid( x, y )
+# x = np.arange ( 0, (NX)*dx, dx )
+# y = np.arange ( 0, (NY)*dx, dx )
+# xx, yy = np.meshgrid( x, y )
 
 ## Properties of the fluid like density and viscosity
 # Bulk viscosity: c^2 x rho
@@ -133,53 +134,60 @@ for i in range ( 0, PMLWidth):
     sigma_y [NY - PMLWidth + i ,:            ] = sigma
 
 
-dxStep = 10
+NXGap = 10
 dyStep = NY // (NSources + 1)
 
-offset = int ( NX//2 - ( dxStep * ( .5 + ( NSources//2 - 1 ) ) + SourceWidth * NSources//2 )  )
+offset = int ( NX//2 - ( NXGap * ( .5 + ( NSources//2 - 1 ) ) + SourceWidth * NSources//2 )  )
+NAperture = NXGap * ( NSources - 1 ) + SourceWidth * NSources 
+
+print ( 'Spatial stepsize   %3.3f um.' % ( dx*1e6 ) )
+print ( 'Time stepsize      %3.3f ns.' % ( dt*1e9 ) )
+print ( 'Volume elasticity  %3.3f .' % ( kappa*1e-3 ) )
+print ( 'Frames             %03d    .' % ( NFrames ))
+#print ( 'Pulse width        %3.3f us.' % ( 1e6*(1.0/freq)/dt) )
+print ( 'Phaseshift         %3.3f us.' % ( phaseshift *1e6/ (2*np.pi*freq )  ) )
+print ( 'Gap size           %3.3f mm.' % ( NXGap * dx * 1e3) )
+print ( 'Element size       %3.3f mm.' % ( SourceWidth * dx * 1e3) )
+print ( 'Aperture           %3.3f mm.' % ( NAperture * dx * 1e3) )
+
+Pmy = 100
+
+RNearField = np.power(NAperture * dx, 2.0 ) / lamda
+
+print ( 'Acoustic newarfield : %3.3f mm' % (RNearField * 1e3 ) )
 
 ### create the acoustic sources
 for iSource in range(0, NSources ):
-    Pmy = 100
-
-    if iSource == 0:
-        Pmx = offset
-    else: 
-        Pmx = int( offset + iSource * (dxStep + SourceWidth ) )
-    
-    print ( 'Source (%d): Px %f, Py %f, width = %f, height = %f.' % ( iSource, Pmx*dx , Pmy*dx, SourceWidth*dx, SourceHeight*dx )  )
+    Pmx = int( offset + iSource * (NXGap + SourceWidth ) )   
+    # print ( 'Source (%d): Px %f, Py %f, width = %f, height = %f.' % ( iSource, Pmx*dx , Pmy*dx, SourceWidth*dx, SourceHeight*dx )  )
     SourceRect (  Excitation[iSource, :, :], Pmx, Pmy, SourceWidth, SourceHeight )    
 
 
-sigma_x[ 0:Pmy + SourceHeight - 1, : ] = sigma_max
-sigma_y[ 0:Pmy + SourceHeight - 1, : ] = sigma_max
+sigma_x[ 0:Pmy + SourceHeight - 1, : ] = sigma_max * 100
+sigma_y[ 0:Pmy + SourceHeight - 1, : ] = sigma_max * 100
 
 # Plot creation
-set_style()
-fig = plt.figure(figsize=(12.8, 7.2))
-ax  = fig.add_subplot(1,1,1)
-cax  = ax.pcolormesh( xx, yy, P, vmin=-1, vmax=1, cmap=colormap, shading='auto')
-ax.set_xlabel ( r'Position $x$ / $m$' )
-ax.set_ylabel ( r'Position $y$ / $m$' )
-ax.set_ylim   ( y[0], y[-1] )
-ax.set_xlim   ( x[0], x[-1] )
-fig.colorbar(cax)
-fig.tight_layout()
+# set_style()
+# fig = plt.figure(figsize=(12.8, 7.2))
+# ax  = fig.add_subplot(1,1,1)
+# cax  = ax.pcolormesh( xx, yy, P, vmin=-1, vmax=1, cmap=colormap, shading='auto')
+# pNFCircle = plt.Circle( ( dx * NX//2,  Pmy * dx ), RNearField , fill = False, linestyle='--' ) 
+# ax.add_patch( pNFCircle )
+# ax.set_xlabel ( r'Position $x$ / $m$' )
+# ax.set_ylabel ( r'Position $y$ / $m$' )
+# ax.set_ylim   ( y[0], y[-1] )
+# ax.set_xlim   ( x[0], x[-1] )
+# fig.colorbar(cax)
+# fig.tight_layout()
 
 ## help variables for computation
 dt_over_rho_x_dx = dt / ( rho * dx )
 kappa_x_dt_over_dx = kappa * dt / dx
 
-n = 0
+PResult = np.zeros ( (NFrames//50, NY, NX ) )
 
-print ( 'Spatial stepsize  %00.3f mm.' % ( dx*1e3 ) )
-print ( 'Time stepsize     %00.3f us.' % ( dt*1e6 ) )
-print ( 'Volume elasticity %03.3f   .' % ( kappa*1e-3 ) )
-print ( 'Frames            %0003d   .' % ( NFrames ))
-print ( 'Pulse width         %03d us.' % ( int((1.0/freq)/dt) ) )
-print ( 'Phaseshift         %3.3f us.' % ( phaseshift *1e6/ (2*np.pi*freq )  ) )
 
-def updatefig ( n ):
+for iTimeStep in range ( 0, NFrames ):
     # Updating particle velocities
     for i in range (2,NY):
         for j in range ( 1, NX ):
@@ -198,26 +206,31 @@ def updatefig ( n ):
     # Acoustic source ( during n period)
     for iSource in range(0, NSources):
         ind = Excitation[iSource][:][:]
-        if ( n * dt <= ( 2/freq + iSource * phaseshift)):
-            P[ ind ] += (1.0-np.cos(2.0*np.pi*freq*n*dt + iSource * phaseshift))/2.0 * np.sin(2.0*np.pi*freq*n*dt + iSource * phaseshift )
+        if ( iTimeStep * dt <= ( 1/freq + NSources * phaseshift)):
+            # P[ ind ] += (1.0-np.cos(2.0*np.pi*freq*n*dt + iSource * phaseshift))/2.0 * np.sin(2.0*np.pi*freq*n*dt + iSource * phaseshift )
+            P[ ind ] += np.sin(2.0*np.pi*freq*iTimeStep*dt + iSource * phaseshift )
 
-    if (( n + 1 ) % 100 == 1) and ( n != 0):
-        print ( '--- processing step %03d / %3.1f ms ---' % ( n , int((n*dt*1e3*10))/10.0  ))
+    if (( iTimeStep + 1 ) % 50 == 1) and ( iTimeStep != 0):
+        print ( '--- processing step %03d / %10.1f us ---' % ( iTimeStep , int(( iTimeStep*dt*1e6*10))/10.0  ))
+    
+    if (( iTimeStep + 1 ) % 50 == 1):
+        PResult[iTimeStep//50][:][:] = P
 
-    # Updating the current calculation step
-    # n += 1
-
+    
+    
     # Updating data
-    cax.set_array ( P.flatten() )
+    #cax.set_array ( P.flatten() )
     #cax2.set_array ( np.abs(P).flatten() )
-    ax.set_title("Time step {} ms".format( int((n*dt*1e3*10))/10.0 ) )
-    return cax,
+    # ax.set_title("Time step {} ms".format( int((n*dt*1e3*10))/10.0 ) )
+    #return cax,
 
-anim = animation.FuncAnimation(fig, updatefig, frames=NFrames-1, blit=True)
+#anim = animation.FuncAnimation(fig, updatefig, frames=NFrames-1, blit=True)
 
-anim
-Writer = animation.writers['ffmpeg']
-writer = Writer ( fps=100, metadata=dict(artist='dhufschl' ), bitrate=6000)
-anim.save('ftdt_acoustic_8_pml_2d.mp4', writer=writer )
-plt.close()
+#anim
+#Writer = animation.writers['ffmpeg']
+#writer = Writer ( fps=100, metadata=dict(artist='dhufschl' ), bitrate=6000)
+#anim.save('ftdt_acoustic_8_pml_2d.mp4', writer=writer )
+#plt.close()
+
+np.savez( '2D_FTDT_Result.npz', P = PResult, dx = dx, dt = dt, f = freq, c = cmax, kappa=kappa, NSources = NSources, SourceWidth = SourceWidth, SourceGap = NXGap )
 
