@@ -62,9 +62,9 @@ def SourceRect( indices, xs , ys, width, height ):
 
 ## Computing grid and resolutions
 # Grid size x-direction
-NX = 2000
+NX = 700
 # Grid size y-direction
-NY = 6000
+NY = 700
 NSources = 8
 NFrames = 5000
 # Density
@@ -150,11 +150,11 @@ print ( 'Gap size           %3.3f mm.' % ( NXGap * dx * 1e3) )
 print ( 'Element size       %3.3f mm.' % ( SourceWidth * dx * 1e3) )
 print ( 'Aperture           %3.3f mm.' % ( NAperture * dx * 1e3) )
 
-Pmy = 100
+Pmy = 0
 
-RNearField = np.power(NAperture * dx, 2.0 ) / lamda
+RNearField = np.power(NAperture * dx, 2.0 ) / ( 4 * lamda)
 
-print ( 'Acoustic newarfield : %3.3f mm' % (RNearField * 1e3 ) )
+print ( 'Acoustic nearfield : %3.3f mm' % (RNearField * 1e3 ) )
 
 ### create the acoustic sources
 for iSource in range(0, NSources ):
@@ -184,7 +184,7 @@ sigma_y[ 0:Pmy + SourceHeight - 1, : ] = sigma_max * 100
 dt_over_rho_x_dx = dt / ( rho * dx )
 kappa_x_dt_over_dx = kappa * dt / dx
 
-PResult = np.zeros ( (NFrames//50, NY, NX ) )
+PResult = np.zeros ( (NFrames, NY, NX ) )
 
 
 for iTimeStep in range ( 0, NFrames ):
@@ -213,8 +213,8 @@ for iTimeStep in range ( 0, NFrames ):
     if (( iTimeStep + 1 ) % 50 == 1) and ( iTimeStep != 0):
         print ( '--- processing step %03d / %10.1f us ---' % ( iTimeStep , int(( iTimeStep*dt*1e6*10))/10.0  ))
     
-    if (( iTimeStep + 1 ) % 50 == 1):
-        PResult[iTimeStep//50][:][:] = P
+#    if (( iTimeStep + 1 ) % 50 == 1):
+    PResult[iTimeStep][:][:] = P
 
     
     
